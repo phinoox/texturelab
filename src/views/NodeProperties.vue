@@ -25,6 +25,7 @@
 <script lang="ts">
 import { Vue, Model, Prop, Component } from "vue-property-decorator";
 import FloatPropertyView from "@/components/properties/FloatProp.vue";
+import FloatArrayPropertyView from "@/components/properties/FloatArrayProp.vue";
 import BoolPropertyView from "@/components/properties/BoolProp.vue";
 import EnumPropertyView from "@/components/properties/EnumProp.vue";
 import ColorPropertyView from "@/components/properties/ColorProp.vue";
@@ -43,6 +44,7 @@ class PropHolder {
 @Component({
 	components: {
 		float: FloatPropertyView,
+		floatArray : FloatArrayPropertyView,
 		int: FloatPropertyView,
 		bool: BoolPropertyView,
 		enum: EnumPropertyView,

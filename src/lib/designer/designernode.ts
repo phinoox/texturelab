@@ -2,13 +2,15 @@ import { Guid } from "../utils";
 import { Designer } from "../designer";
 import {
 	Property,
+	PropertyType,
 	FloatProperty,
 	IntProperty,
 	BoolProperty,
 	EnumProperty,
 	ColorProperty,
 	StringProperty,
-	GradientProperty
+	GradientProperty,
+	FloatArrayProperty
 } from "./properties";
 import { buildShaderProgram } from "./gl";
 import { Color } from "./color";
@@ -34,6 +36,7 @@ export class DesignerNode {
 
 	inputs: string[] = new Array();
 	properties: Property[] = new Array();
+	hiddenProperties: Property[] = new Array();
 
 	// tells scene to update the texture next frame
 	needsUpdate: boolean = true;
@@ -47,7 +50,7 @@ export class DesignerNode {
 	// a connection is removed
 	//
 	// all output connected nodes are invalidated as well
-	private requestUpdate() {
+	protected requestUpdate() {
 		this.designer.requestUpdate(this);
 	}
 
@@ -107,7 +110,9 @@ export class DesignerNode {
 		);
 
 		// pass properties
-		for (let prop of this.properties) {
+		let allProps = this.properties;
+		allProps.concat(this.hiddenProperties);
+		for (let prop of allProps) {
 			if (prop instanceof FloatProperty) {
 				gl.uniform1f(
 					gl.getUniformLocation(
@@ -117,7 +122,16 @@ export class DesignerNode {
 					(prop as FloatProperty).value
 				);
 			}
-			if (prop instanceof IntProperty) {
+			else if (prop instanceof FloatArrayProperty) {
+				gl.uniform1fv(
+					gl.getUniformLocation(
+						this.shaderProgram,
+						"prop_" + prop.name
+					),
+					(prop as FloatArrayProperty).value
+				);
+			}
+			else if (prop instanceof IntProperty) {
 				gl.uniform1i(
 					gl.getUniformLocation(
 						this.shaderProgram,
@@ -126,7 +140,7 @@ export class DesignerNode {
 					(prop as IntProperty).value
 				);
 			}
-			if (prop instanceof BoolProperty) {
+			else if (prop instanceof BoolProperty) {
 				gl.uniform1i(
 					gl.getUniformLocation(
 						this.shaderProgram,
@@ -135,7 +149,7 @@ export class DesignerNode {
 					(prop as BoolProperty).value == false ? 0 : 1
 				);
 			}
-			if (prop instanceof EnumProperty) {
+			else if (prop instanceof EnumProperty) {
 				gl.uniform1i(
 					gl.getUniformLocation(
 						this.shaderProgram,
@@ -144,7 +158,7 @@ export class DesignerNode {
 					(prop as EnumProperty).index
 				);
 			}
-			if (prop instanceof ColorProperty) {
+			else if (prop instanceof ColorProperty) {
 				var col = (prop as ColorProperty).value;
 				//console.log("color: ", col);
 				gl.uniform4f(
@@ -158,7 +172,7 @@ export class DesignerNode {
 					col.a
 				);
 			}
-			if (prop instanceof GradientProperty) {
+			else if (prop instanceof GradientProperty) {
 				let gradient = (prop as GradientProperty).value;
 
 				gl.uniform1i(
@@ -226,6 +240,14 @@ export class DesignerNode {
 		this.inputs.push(name);
 	}
 
+	protected getProperty(name : string){
+		let prop = this.properties.find(x => {
+			return x.name == name;
+		});
+		return prop;
+	}
+
+	
 	public setProperty(name: string, value: any) {
 		let prop = this.properties.find(x => {
 			return x.name == name;
@@ -235,6 +257,7 @@ export class DesignerNode {
 			prop.setValue(value);
 			this.requestUpdate();
 		}
+		this.onSetProperty(name,value);
 
 		// for (let prop of this.properties) {
 		//   console.log("prop iter");
@@ -245,6 +268,10 @@ export class DesignerNode {
 		//     this.requestUpdate();
 		//   }
 		// }
+	}
+
+	protected onSetProperty(name : string,value:any){
+
 	}
 
 	public _init() {
@@ -586,25 +613,29 @@ export class DesignerNode {
 
 		//console.log(this.properties);
 		//console.log(typeof FloatProperty);
-
-		for (let prop of this.properties) {
+		let allProps = this.properties;
+		allProps.concat(this.hiddenProperties);
+		for (let prop of allProps) {
 			//code += "uniform sampler2D " + input + ";\n";
 			if (prop instanceof FloatProperty) {
 				code += "uniform float prop_" + prop.name + ";\n";
 			}
-			if (prop instanceof IntProperty) {
+			else if (prop instanceof FloatArrayProperty) {
+				code += "uniform float[" + prop.maxArraySize + "] prop_" + prop.name + ";\n";
+			}
+			else if (prop instanceof IntProperty) {
 				code += "uniform int prop_" + prop.name + ";\n";
 			}
-			if (prop instanceof BoolProperty) {
+			else if (prop instanceof BoolProperty) {
 				code += "uniform bool prop_" + prop.name + ";\n";
 			}
-			if (prop instanceof EnumProperty) {
+			else if (prop instanceof EnumProperty) {
 				code += "uniform int prop_" + prop.name + ";\n";
 			}
-			if (prop instanceof ColorProperty) {
+			else if (prop instanceof ColorProperty) {
 				code += "uniform vec4 prop_" + prop.name + ";\n";
 			}
-			if (prop instanceof GradientProperty) {
+			else if (prop instanceof GradientProperty) {
 				// code += "uniform struct prop_" + prop.name + " {\n";
 				// code += "vec3 colors[GRADIENT_MAX_POINTS];\n";
 				// code += "vec3 positions[GRADIENT_MAX_POINTS];\n";
@@ -627,14 +658,17 @@ export class DesignerNode {
 		defaultVal: number = 1,
 		minVal: number = 1,
 		maxVal: number = 100,
-		increment: number = 1
+		increment: number = 1,
+		hidden : boolean = false
 	): IntProperty {
 		var prop = new IntProperty(id, displayName, defaultVal);
 		prop.minValue = minVal;
 		prop.maxValue = maxVal;
 		prop.step = increment;
-
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 
@@ -644,69 +678,115 @@ export class DesignerNode {
 		defaultVal: number = 1,
 		minVal: number = 1,
 		maxVal: number = 100,
-		increment: number = 1
+		increment: number = 1,
+		hidden: boolean = false
 	): FloatProperty {
 		var prop = new FloatProperty(id, displayName, defaultVal);
 		prop.minValue = minVal;
 		prop.maxValue = maxVal;
 		prop.step = increment;
 
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
+		return prop;
+	}
+
+	addFloatArrayProperty(
+		id: string,
+		displayName: string,
+		defaultVal: number[] = new Array(),
+		minVal: number = 1,
+		maxVal: number = 100,
+		increment: number = 1,
+		maxArraySize: number = 8,
+		hidden: boolean = false
+	): FloatArrayProperty {
+		var prop = new FloatArrayProperty(id, displayName, defaultVal);
+		prop.minValue = minVal;
+		prop.maxValue = maxVal;
+		prop.step = increment;
+		prop.maxArraySize=maxArraySize;
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 
 	addBoolProperty(
 		id: string,
 		displayName: string,
-		defaultVal: boolean = false
+		defaultVal: boolean = false,
+		hidden: boolean = false
 	): BoolProperty {
 		var prop = new BoolProperty(id, displayName, defaultVal);
 
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 
 	addEnumProperty(
 		id: string,
 		displayName: string,
-		defaultVal: string[] = new Array()
+		defaultVal: string[] = new Array(),
+		hidden: boolean = false
 	): EnumProperty {
 		var prop = new EnumProperty(id, displayName, defaultVal);
 
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 
 	addColorProperty(
 		id: string,
 		displayName: string,
-		defaultVal: Color
+		defaultVal: Color,
+		hidden: boolean = false
 	): ColorProperty {
 		var prop = new ColorProperty(id, displayName, defaultVal);
 
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 
 	addStringProperty(
 		id: string,
 		displayName: string,
-		defaultVal: string = ""
+		defaultVal: string = "",
+		hidden: boolean = false
 	): StringProperty {
 		var prop = new StringProperty(id, displayName, defaultVal);
 
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 
 	addGradientProperty(
 		id: string,
 		displayName: string,
-		defaultVal: Gradient
+		defaultVal: Gradient,
+		hidden: boolean = false
 	): GradientProperty {
 		var prop = new GradientProperty(id, displayName, defaultVal);
 
-		this.properties.push(prop);
+		if(hidden)
+		  this.hiddenProperties.push(prop);
+		else
+		  this.properties.push(prop);
 		return prop;
 	}
 }

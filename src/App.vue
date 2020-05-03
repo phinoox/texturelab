@@ -425,18 +425,22 @@ export default class App extends Vue {
             }
           ],
           defaultPath: "material.texture"
-        },
-        path => {
-          //console.log(path);
-          if (!path.endsWith(".texture")) path += ".texture";
-
+        }
+      ).then(async result => {
+        if(result.canceled)
+         return;
+  
+  let path= result.filePath;
+      if (!path.endsWith(".texture")) path += ".texture";
           this.project.name = path.replace(/^.*[\\\/]/, "");
           this.project.path = path;
-
           ProjectManager.save(path, this.project);
           remote.getCurrentWindow().setTitle(this.project.name);
-        }
-      );
+}).catch(err => {
+  console.log(err)
+});
+     
+      
     } else {
       ProjectManager.save(this.project.path, this.project);
     }
@@ -454,13 +458,13 @@ export default class App extends Vue {
           }
         ],
         defaultPath: "material"
-      },
-      (paths, bookmarks) => {
-        let path = paths[0];
-
-        let project = ProjectManager.load(path);
+      }
+    ).then(async result => {
+        if(result.canceled)
+         return;
+          let path= result.filePaths[0];
+          let project = ProjectManager.load(path);
         console.log(project);
-
         // ensure library exists
         let libName = project.data["libraryVersion"];
         let libraries = ["v0", "v1"];
@@ -470,16 +474,14 @@ export default class App extends Vue {
           );
           return;
         }
-
         remote.getCurrentWindow().setTitle(project.name);
         this.editor.load(project.data);
         this.resolution = 1024;
         this.randomSeed = 32;
-
         this.project = project;
         this.library = this.editor.library;
-      }
-    );
+         })
+         ;
   }
 
   loadSample(name: string) {}
@@ -503,20 +505,22 @@ export default class App extends Vue {
           (this.project.name
             ? this.project.name.replace(".texture", "")
             : "material") + ".unitypackage"
-      },
-      path => {
-        if (!path) return;
-
+      }
+    ).then(async result => {
+        if(result.canceled)
+         return;
+         let path= result.filePath;
         fs.writeFile(path, buffer, function(err) {
           if (err) alert("Error exporting texture: " + err);
         });
 
         remote.shell.showItemInFolder(path);
-      }
-    );
+         });
+  
+              
   }
 
-  exportUnityZip() {
+   exportUnityZip() {
     dialog.showSaveDialog(
       remote.getCurrentWindow(),
       {
@@ -530,14 +534,11 @@ export default class App extends Vue {
           (this.project.name
             ? this.project.name.replace(".texture", "")
             : "material") + ".zip"
-      },
-      async path => {
-        if (!path) {
-          return;
-        }
-
-        console.log(path);
-
+      }
+    ).then(async result => {
+        if(result.canceled)
+         return;
+         let path= result.filePath;
         let zip = await unityZipExport(
           this.editor,
           this.project.name.replace(".texture", "")
@@ -545,12 +546,12 @@ export default class App extends Vue {
 
         zip.writeZip(path);
         remote.shell.showItemInFolder(path);
-      }
-    );
+         });
+ 
   }
 
-  exportZip() {
-    dialog.showSaveDialog(
+  async exportZip() {
+    let path = dialog.showSaveDialog(
       remote.getCurrentWindow(),
       {
         filters: [
@@ -563,23 +564,20 @@ export default class App extends Vue {
           (this.project.name
             ? this.project.name.replace(".texture", "")
             : "material") + ".zip"
-      },
-      async path => {
-        if (!path) {
-          return;
-        }
-
-        console.log(path);
-
-        let zip = await zipExport(
+      }
+    ).then(async result => {
+        if(result.canceled)
+         return;
+         let path= result.filePath;
+         let zip = await zipExport(
           this.editor,
           this.project.name.replace(".texture", "")
         );
 
         zip.writeZip(path);
         remote.shell.showItemInFolder(path);
-      }
-    );
+         });
+
   }
 
   showTutorials() {}

@@ -9,7 +9,8 @@ export enum PropertyType {
 	Color = "color",
 	Enum = "enum",
 	String = "string",
-	Gradient = "gradient"
+	Gradient = "gradient",
+	FloatArray = "floatArray"
 }
 
 export class Property {
@@ -71,6 +72,58 @@ export class FloatProperty extends Property {
 	}
 
 	public copyValuesFrom(prop: FloatProperty) {
+		this.minValue = prop.minValue;
+		this.maxValue = prop.maxValue;
+		this.value = prop.value;
+		this.step = prop.step;
+	}
+}
+
+export class FloatArrayProperty extends Property {
+	value: number[] = new Array();
+	minValue: number = 0;
+	maxValue: number = 1;
+	step: number = 1;
+	maxArraySize=8;
+	public constructor(
+		name: string,
+		displayName: string,
+		value: number[],
+		step: number = 1,
+		maxArraySize: number = 8
+	) {
+		super();
+		this.name = name;
+		this.displayName = displayName;
+		this.value = value;
+		this.step = step;
+		this.maxArraySize=maxArraySize
+		this.type = PropertyType.FloatArray;
+	}
+
+	public getValue(): any {
+		return this.value;
+	}
+
+	public setValue(val: any) {
+		// todo: validate
+		this.value = val;
+	}
+
+	public clone(): Property {
+		var prop = new FloatArrayProperty(
+			this.name,
+			this.displayName,
+			this.value,
+			this.step
+		);
+		prop.minValue = this.minValue;
+		prop.maxValue = this.maxValue;
+
+		return prop;
+	}
+
+	public copyValuesFrom(prop: FloatArrayProperty) {
 		this.minValue = prop.minValue;
 		this.maxValue = prop.maxValue;
 		this.value = prop.value;

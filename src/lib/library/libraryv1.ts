@@ -29,6 +29,7 @@ import { GradientNode, TriGradientNode } from "./v1/gradient";
 import { DesignerLibrary } from "../designer/library";
 import { OutputNode } from "./v1/output";
 import { GradientMapNode } from "./v1/gradientmap";
+import { GaussianBlurNode } from "./v1/gaussianblur";
 
 export function createLibrary() {
 	var lib = new DesignerLibrary();
@@ -71,6 +72,7 @@ export function createLibrary() {
 	lib.addNode("output", "Output", OutputNode);
 	lib.addNode("gradientmap", "Gradient Map", GradientMapNode);
 	// lib.addNode("betterwarp", "Better Warp", BetterWarpNode);
+	lib.addNode("gaussianblur","Gaussian Blur", GaussianBlurNode);
 
 	return lib;
 }
